@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการสำหรับแพทย์ (Doctor Chat Dashboard)</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        .chat-bg { background-color: #f0f7ff; }
+        .user-bubble { background-color: #e2e8f0; color: #1e293b; }
+        .doctor-bubble { background-color: #2563eb; color: #ffffff; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased h-screen flex flex-col">
+
+    <header class="bg-blue-700 text-white p-4 flex justify-between items-center shadow-md shrink-0">
+        <div>
+            <h1 class="text-lg font-bold">🏥 Medical Chat Dashboard (สำหรับแพทย์)</h1>
+            <p class="text-xs text-blue-200">ระบบตอบกลับข้อความคนไข้รายบุคคล</p>
+        </div>
+        <button onclick="loadPatientList()" class="bg-blue-600 hover:bg-blue-800 border border-blue-500 text-white text-xs px-3 py-1.5 rounded-xl font-medium transition cursor-pointer">
+            🔄 ซิงค์ข้อมูลใหม่
+        </button>
+    </header>
+
+    <div class="flex-1 flex overflow-hidden">
+        
+        <aside class="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0">
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50">
+                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">📥 รายการห้องแชทของคนไข้</h2>
+            </div>
+            <div id="patientList" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+                <p class="text-slate-400 text-center py-8 text-xs">กำลังโหลดรายชื่อ...</p>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col bg-slate-100" id="chatArea">
+            <div id="noChatSelected" class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
+                <div class="text-4xl mb-2">💬</div>
+                <p class="text-sm font-medium">กรุณาเลือกรายชื่อคนไข้ทางฝั่งซ้ายเพื่อเริ่มการสนทนา</p>
+            </div>
+
+            <div id="chatWindow" class="flex-1 flex flex-col overflow-hidden hidden">
+                <div class="bg-white p-3 border-b border-slate-200 shadow-2xs shrink-0 flex justify-between items-center">
+                    <span class="font-bold text-slate-800 text-sm" id="currentChatPatientName">คนไข้</span>
+                    <span class="text-xs text-slate-400">ห้องสนทนาส่วนตัว</span>
+                </div>
+
+                <div class="chat-bg flex-1 overflow-y-auto p-4 space-y-3" id="doctorChatContainer">
+                    <div id="doctorChatHistory" class="space-y-3 max-w-2xl mx-auto"></div>
+                </div>
+
+                <footer class="bg-white border-t border-slate-200 p-3 shrink-0 shadow-lg">
+                    <form id="doctorReplyForm" class="max-w-2xl mx-auto flex items-end space-x-2">
+                        <textarea id="doctorReplyMessage" rows="1" required placeholder="พิมพ์ข้อความตอบกลับคนไข้ที่นี่..." 
+                                  class="flex-1 min-h-[40px] max-h-[120px] p-2 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-hidden focus:border-blue-500 text-sm"
+                                  oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"></textarea>
+                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-xs transition shrink-0 h-[40px] flex items-center justify-center cursor-pointer">
+                            ส่งคำตอบ
+                        </button>
+                    </form>
+                </footer>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://gsfwxrbeykupnobvnvvj.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_qpHFtNjXGKYTIXMXaT_NPw_BLIOv7oc";
+        const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        let selectedPatientName = null;
+
+        loadPatientList();
+
+        async function loadPatientList() {
+            const { data: chats, error } = await db
+                .from('expert_chats')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) { console.error(error); return; }
+
+            const patientListDiv = document.getElementById('patientList');
+            patientListDiv.innerHTML = '';
+
+            if (!chats || chats.length === 0) {
+                patientListDiv.innerHTML = '<p class="text-slate-400 text-center py-8 text-xs">ไม่มีห้องแชทในระบบ</p>';
+                return;
+            }
+
+            const uniquePatients = {};
+            chats.forEach(chat => {
+                if (!uniquePatients[chat.patient_name]) {
+                    uniquePatients[chat.patient_name] = {
+                        last_message: chat.chat_message,
+                        is_replied: chat.expert_reply ? true : false,
+                        time: new Date(chat.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})
+                    };
+                }
+            });
+
+            Object.keys(uniquePatients).forEach(pName => {
+                const pInfo = uniquePatients[pName];
+                const activeClass = (selectedPatientName === pName) ? 'bg-blue-50 border-l-4 border-blue-600' : '';
+                const alertDot = !pInfo.is_replied ? '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0 shadow-xs"></span>' : '';
+
+                patientListDiv.innerHTML += `
+                    <button onclick="selectPatient('${pName}')" class="w-full text-left p-3.5 flex flex-col gap-1 hover:bg-slate-50 transition cursor-pointer ${activeClass}">
+                        <div class="flex items-center justify-between w-full">
+                            <span class="font-bold text-slate-800 text-xs flex items-center gap-1.5">${pName} ${alertDot}</span>
+                            <span class="text-[10px] text-slate-400 font-normal">${pInfo.time}</span>
+                        </div>
+                        <p class="text-slate-500 text-[11px] truncate w-full">${pInfo.last_message}</p>
+                    </button>
+                `;
+            });
+        }
+
+        function selectPatient(patientName) {
+            selectedPatientName = patientName;
+            document.getElementById('noChatSelected').classList.add('hidden');
+            document.getElementById('chatWindow').classList.remove('hidden');
+            document.getElementById('currentChatPatientName').innerText = `💬 กำลังคุยกับคุณ: ${patientName}`;
+            
+            loadPatientList();
+            loadSpecificChatHistory();
+        }
+
+        async function loadSpecificChatHistory() {
+            if (!selectedPatientName) return;
+
+            const { data: chats, error } = await db
+                .from('expert_chats')
+                .select('*')
+                .eq('patient_name', selectedPatientName)
+                .order('created_at', { ascending: true });
+
+            if (error) { console.error(error); return; }
+
+            const chatHistoryDiv = document.getElementById('doctorChatHistory');
+            chatHistoryDiv.innerHTML = '';
+
+            chats.forEach(chat => {
+                const chatTime = new Date(chat.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
+
+                let chatHtml = `
+                    <div class="flex flex-col items-start w-full space-y-0.5">
+                        <span class="text-[10px] text-slate-500 ml-1">${chat.patient_name}</span>
+                        <div class="flex items-end space-x-1.5 max-w-[85%]">
+                            <div class="user-bubble p-2.5 rounded-2xl rounded-tl-xs shadow-2xs text-xs break-words">
+                                ${chat.chat_message}
+                            </div>
+                            <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
+                        </div>
+                    </div>
+                `;
+
+                if (chat.expert_reply) {
+                    chatHtml += `
+                        <div class="flex flex-col items-end w-full space-y-0.5 mt-2">
+                            <span class="text-[10px] text-blue-600 font-semibold mr-1">👨‍⚕️ คำตอบของคุณ</span>
+                            <div class="flex items-end space-x-1.5 max-w-[85%]">
+                                <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
+                                <div class="doctor-bubble p-2.5 rounded-2xl rounded-tr-xs shadow-2xs text-xs break-words">
+                                    ${chat.expert_reply}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                chatHistoryDiv.innerHTML += chatHtml;
+            });
+
+            const chatContainer = document.getElementById('doctorChatContainer');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        document.getElementById('doctorReplyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!selectedPatientName) return;
+
+            const replyInput = document.getElementById('doctorReplyMessage');
+            const replyText = replyInput.value.trim();
+
+            const { data: latestChats, error: fetchErr } = await db
+                .from('expert_chats')
+                .select('id')
+                .eq('patient_name', selectedPatientName)
+                .order('created_at', { ascending: false })
+                .limit(1);
+
+            if (fetchErr || !latestChats || latestChats.length === 0) {
+                alert("ไม่พบข้อความของคนไข้คนนี้ให้ตอบกลับ");
+                return;
+            }
+
+            const targetId = latestChats[0].id;
+
+            const { error: updateErr } = await db
+                .from('expert_chats')
+                .update({ expert_reply: replyText })
+                .eq('id', targetId);
+
+            if (updateErr) {
+                alert('ส่งคำตอบล้มเหลว: ' + updateErr.message);
+            } else {
+                replyInput.value = '';
+                replyInput.style.height = '40px';
+                await loadSpecificChatHistory();
+                await loadPatientList();
+            }
+        });
+
+        // ดึงข้อมูลแชทใหม่ให้อัตโนมัติทุกๆ 4 วินาที
+        setInterval(() => {
+            loadPatientList();
+            loadSpecificChatHistory();
+        }, 4000);
+    </script>
+</body>
+</html>
