@@ -14,18 +14,21 @@
 </head>
 <body class="bg-slate-50 font-sans antialiased h-screen flex flex-col">
 
+    <!-- Header -->
     <header class="bg-blue-700 text-white p-4 flex justify-between items-center shadow-md shrink-0">
         <div>
             <h1 class="text-lg font-bold">🏥 Medical Chat Dashboard (สำหรับแพทย์)</h1>
-            <p class="text-xs text-blue-200">ระบบตอบกลับข้อความคนไข้รายบุคคล</p>
+            <p class="text-xs text-blue-200">ระบบตอบกลับข้อความคนไข้รายบุคคล (พิมพ์ตอบได้ต่อเนื่องไม่จำกัด)</p>
         </div>
         <button onclick="loadPatientList()" class="bg-blue-600 hover:bg-blue-800 border border-blue-500 text-white text-xs px-3 py-1.5 rounded-xl font-medium transition cursor-pointer">
             🔄 ซิงค์ข้อมูลใหม่
         </button>
     </header>
 
+    <!-- Main Workspace -->
     <div class="flex-1 flex overflow-hidden">
         
+        <!-- 👥 ฝั่งซ้าย: รายชื่อคนไข้ที่มีการทักเข้ามา -->
         <aside class="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0">
             <div class="p-4 border-b border-slate-100 bg-slate-50/50">
                 <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">📥 รายการห้องแชทของคนไข้</h2>
@@ -35,22 +38,28 @@
             </div>
         </aside>
 
+        <!-- 💬 ฝั่งขวา: ห้องสนทนาของคนไข้ที่ถูกเลือก -->
         <main class="flex-1 flex flex-col bg-slate-100" id="chatArea">
+            <!-- หน้าต่างเริ่มต้นตอนที่หมอยังไม่ได้คลิกเลือกใคร -->
             <div id="noChatSelected" class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
                 <div class="text-4xl mb-2">💬</div>
                 <p class="text-sm font-medium">กรุณาเลือกรายชื่อคนไข้ทางฝั่งซ้ายเพื่อเริ่มการสนทนา</p>
             </div>
 
+            <!-- กล่องประวัติแชทจริง (จะเปิดแสดงเมื่อเลือกคนไข้แล้ว) -->
             <div id="chatWindow" class="flex-1 flex flex-col overflow-hidden hidden">
+                <!-- ชื่อคนไข้ด้านบนห้องแชท -->
                 <div class="bg-white p-3 border-b border-slate-200 shadow-2xs shrink-0 flex justify-between items-center">
                     <span class="font-bold text-slate-800 text-sm" id="currentChatPatientName">คนไข้</span>
                     <span class="text-xs text-slate-400">ห้องสนทนาส่วนตัว</span>
                 </div>
 
+                <!-- พื้นที่แชทไหล -->
                 <div class="chat-bg flex-1 overflow-y-auto p-4 space-y-3" id="doctorChatContainer">
                     <div id="doctorChatHistory" class="space-y-3 max-w-2xl mx-auto"></div>
                 </div>
 
+                <!-- ฟอร์มพิมพ์ส่งคำตอบของหมอ -->
                 <footer class="bg-white border-t border-slate-200 p-3 shrink-0 shadow-lg">
                     <form id="doctorReplyForm" class="max-w-2xl mx-auto flex items-end space-x-2">
                         <textarea id="doctorReplyMessage" rows="1" required placeholder="พิมพ์ข้อความตอบกลับคนไข้ที่นี่..." 
@@ -74,6 +83,7 @@
 
         loadPatientList();
 
+        // 1. ดึงรายชื่อคนไข้ที่มีประวัติคุย
         async function loadPatientList() {
             const { data: chats, error } = await db
                 .from('expert_chats')
@@ -93,9 +103,18 @@
             const uniquePatients = {};
             chats.forEach(chat => {
                 if (!uniquePatients[chat.patient_name]) {
+                    // หาข้อความล่าสุดในห้องนี้ ไม่ว่าจะเป็นคนไข้พิมพ์หรือหมอพิมพ์
+                    let displayMsg = chat.chat_message ? chat.chat_message : `👨‍⚕️ คุณหมอ: ${chat.expert_reply}`;
+                    
+                    // หาว่าข้อความสุดท้ายของห้องนี้ หมอตอบหรือยัง (ถ้าข้อความล่าสุดมีแต่ chat_message และไม่มี expert_reply แปลว่ายังไม่ได้ตอบ)
+                    let isReplied = true;
+                    if (chat.chat_message && !chat.expert_reply) {
+                        isReplied = false;
+                    }
+
                     uniquePatients[chat.patient_name] = {
-                        last_message: chat.chat_message,
-                        is_replied: chat.expert_reply ? true : false,
+                        last_message: displayMsg,
+                        is_replied: isReplied,
                         time: new Date(chat.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})
                     };
                 }
@@ -128,6 +147,7 @@
             loadSpecificChatHistory();
         }
 
+        // 2. ดึงประวัติการคุยมาแสดงในห้องแชท (รองรับการแสดงผลแถวที่เป็นของหมอล้วนๆ)
         async function loadSpecificChatHistory() {
             if (!selectedPatientName) return;
 
@@ -145,20 +165,38 @@
             chats.forEach(chat => {
                 const chatTime = new Date(chat.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
 
-                let chatHtml = `
-                    <div class="flex flex-col items-start w-full space-y-0.5">
-                        <span class="text-[10px] text-slate-500 ml-1">${chat.patient_name}</span>
-                        <div class="flex items-end space-x-1.5 max-w-[85%]">
-                            <div class="user-bubble p-2.5 rounded-2xl rounded-tl-xs shadow-2xs text-xs break-words">
-                                ${chat.chat_message}
+                // กรณีที่ 1: แถวที่มีข้อความคนไข้ (และอาจจะมีคำตอบหมอพ่วงอยู่ด้วย)
+                if (chat.chat_message) {
+                    let chatHtml = `
+                        <div class="flex flex-col items-start w-full space-y-0.5">
+                            <span class="text-[10px] text-slate-500 ml-1">${chat.patient_name}</span>
+                            <div class="flex items-end space-x-1.5 max-w-[85%]">
+                                <div class="user-bubble p-2.5 rounded-2xl rounded-tl-xs shadow-2xs text-xs break-words">
+                                    ${chat.chat_message}
+                                </div>
+                                <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
                             </div>
-                            <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
                         </div>
-                    </div>
-                `;
+                    `;
 
-                if (chat.expert_reply) {
-                    chatHtml += `
+                    if (chat.expert_reply) {
+                        chatHtml += `
+                            <div class="flex flex-col items-end w-full space-y-0.5 mt-2">
+                                <span class="text-[10px] text-blue-600 font-semibold mr-1">👨‍⚕️ คำตอบของคุณ</span>
+                                <div class="flex items-end space-x-1.5 max-w-[85%]">
+                                    <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
+                                    <div class="doctor-bubble p-2.5 rounded-2xl rounded-tr-xs shadow-2xs text-xs break-words">
+                                        ${chat.expert_reply}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    chatHistoryDiv.innerHTML += chatHtml;
+                } 
+                // กรณีที่ 2: แถวที่เป็นข้อความที่หมอสร้างขึ้นมาใหม่เดี่ยวๆ (พิมพ์เบิ้ลส่งไป)
+                else if (chat.expert_reply) {
+                    let chatHtml = `
                         <div class="flex flex-col items-end w-full space-y-0.5 mt-2">
                             <span class="text-[10px] text-blue-600 font-semibold mr-1">👨‍⚕️ คำตอบของคุณ</span>
                             <div class="flex items-end space-x-1.5 max-w-[85%]">
@@ -169,15 +207,15 @@
                             </div>
                         </div>
                     `;
+                    chatHistoryDiv.innerHTML += chatHtml;
                 }
-
-                chatHistoryDiv.innerHTML += chatHtml;
             });
 
             const chatContainer = document.getElementById('doctorChatContainer');
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
+        // 3. ปรับตรงนี้! เปลี่ยนจากการอัปเดตแถวเก่า เป็นการ INSERT เพิ่มแถวคำตอบใหม่เข้าไปแทน
         document.getElementById('doctorReplyForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!selectedPatientName) return;
@@ -185,27 +223,17 @@
             const replyInput = document.getElementById('doctorReplyMessage');
             const replyText = replyInput.value.trim();
 
-            const { data: latestChats, error: fetchErr } = await db
+            // ใช้คำสั่ง .insert เพื่อสร้างกล่องข้อความของหมออันใหม่เข้าไปเลย ทำให้หมอพิมพ์กี่ข้อความต่อกันก็ได้ครับ
+            const { error } = await db
                 .from('expert_chats')
-                .select('id')
-                .eq('patient_name', selectedPatientName)
-                .order('created_at', { ascending: false })
-                .limit(1);
+                .insert([{ 
+                    patient_name: selectedPatientName, 
+                    chat_message: null, // ปล่อยเป็น null เพราะเป็นข้อความฝั่งหมอพิมพ์ส่ง
+                    expert_reply: replyText 
+                }]);
 
-            if (fetchErr || !latestChats || latestChats.length === 0) {
-                alert("ไม่พบข้อความของคนไข้คนนี้ให้ตอบกลับ");
-                return;
-            }
-
-            const targetId = latestChats[0].id;
-
-            const { error: updateErr } = await db
-                .from('expert_chats')
-                .update({ expert_reply: replyText })
-                .eq('id', targetId);
-
-            if (updateErr) {
-                alert('ส่งคำตอบล้มเหลว: ' + updateErr.message);
+            if (error) {
+                alert('ส่งคำตอบล้มเหลว: ' + error.message);
             } else {
                 replyInput.value = '';
                 replyInput.style.height = '40px';
@@ -214,11 +242,11 @@
             }
         });
 
-        // ดึงข้อมูลแชทใหม่ให้อัตโนมัติทุกๆ 4 วินาที
+        // ดึงข้อมูลแชทใหม่ให้อัตโนมัติทุกๆ 3 วินาที
         setInterval(() => {
             loadPatientList();
             loadSpecificChatHistory();
-        }, 4000);
+        }, 3000);
     </script>
 </body>
 </html>
