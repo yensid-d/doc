@@ -16,8 +16,8 @@
 </head>
 <body class="h-screen flex flex-col overflow-hidden">
 
-    <!-- Toast Notification สำหรับแจ้งเตือน (แทน alert) -->
-    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-x-full opacity-0 transition-all duration-300 max-w-sm bg-white border border-slate-200 shadow-lg rounded-2xl p-4 flex items-center space-x-3">
+    <!-- Toast Notification สำหรับแจ้งเตือน -->
+    <div id="toast" class="fixed top-5 right-5 z-60 transform translate-x-full opacity-0 transition-all duration-300 max-w-sm bg-white border border-slate-200 shadow-lg rounded-2xl p-4 flex items-center space-x-3">
         <div id="toastIcon" class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 font-bold text-white text-sm">✓</div>
         <div class="flex-1">
             <h4 id="toastTitle" class="text-sm font-bold text-slate-800">แจ้งเตือน</h4>
@@ -35,7 +35,7 @@
             </button>
             <div>
                 <h1 class="text-base font-bold text-sky-950">ระบบเจ้าหน้าที่/หมอ</h1>
-                <p class="text-xs text-sky-600">จัดการระบบและแชท</p>
+                <p id="navSubTitle" class="text-xs text-sky-600">จัดการระบบและแชท</p>
             </div>
         </div>
     </header>
@@ -43,10 +43,10 @@
     <!-- Overlay สำหรับคลิกปิดเมนูด้านข้าง -->
     <div id="overlay" class="fixed inset-0 bg-black/20 z-40 hidden transition-opacity"></div>
 
-    <!-- Sidebar เมนูด้านข้าง -->
-    <aside id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between p-5 border-r border-slate-200">
-        <div class="space-y-6">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+    <!-- Sidebar เมนูด้านข้าง (รวมรายการแชทคนไข้ไว้ค้นหาและเลือก) -->
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-80 bg-white shadow-xl z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between border-r border-slate-200">
+        <div class="flex flex-col h-full">
+            <div class="p-5 border-b border-slate-100 flex items-center justify-between">
                 <h2 class="text-base font-bold text-sky-950">เมนูหลัก</h2>
                 <button id="closeBtn" class="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition cursor-pointer">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -55,7 +55,7 @@
                 </button>
             </div>
 
-            <nav class="space-y-2">
+            <nav class="p-5 space-y-2 border-b border-slate-100 shrink-0">
                 <a href="#" onclick="switchView('chat')" id="menuChat" class="flex items-center space-x-3 p-3 rounded-xl bg-sky-50 text-sky-900 font-medium transition">
                     <span class="text-xl">💬</span>
                     <span>แชทกับผู้ป่วย</span>
@@ -65,37 +65,47 @@
                     <span>เพิ่มข้อมูลคลินิก</span>
                 </a>
             </nav>
-        </div>
 
-        <div class="text-xs text-center text-slate-400 pb-2">
-            Multi STIs Test Kit System
+            <!-- ส่วนรายชื่อคนไข้และช่องค้นหาใน Sidebar -->
+            <div id="sidebarChatSection" class="flex-1 flex flex-col overflow-hidden p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider">รายชื่อคนไข้</h3>
+                    <span id="patientCountBadge" class="text-[10px] bg-sky-100 text-sky-700 px-2 py-0.5 rounded-full font-bold">0 เคส</span>
+                </div>
+                
+                <!-- ช่องค้นหาชื่อคนไข้ -->
+                <div class="relative">
+                    <input type="text" id="patientSearchInput" placeholder="ค้นหาชื่อคนไข้..." oninput="filterPatientList()"
+                           class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-sky-400 focus:bg-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+
+                <!-- List รายชื่อคนไข้ -->
+                <div id="patientList" class="flex-1 overflow-y-auto divide-y divide-slate-100 pr-1 space-y-1">
+                    <p class="text-xs text-slate-400 text-center py-6">กำลังโหลดรายชื่อคนไข้...</p>
+                </div>
+            </div>
+
+            <div class="p-4 text-xs text-center text-slate-400 border-t border-slate-100 shrink-0">
+                Multi STIs Test Kit System
+            </div>
         </div>
     </aside>
 
     <!-- Main Container สำหรับสลับหน้า View -->
     <div class="flex-1 flex overflow-hidden relative">
 
-        <!-- 💬 หน้าแชท (Chat View เดิมทั้งหมดแบบเป๊ะๆ) -->
-        <div id="chatView" class="flex-1 flex flex-col md:flex-row h-full w-full absolute inset-0 bg-[#f8fafc] transition-opacity">
-            <!-- 👥 Sidebar ซ้าย: รายชื่อคนไข้ -->
-            <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-full z-10 shadow-sm">
-                <div class="p-4 border-b border-slate-100 bg-sky-50/50">
-                    <h1 class="text-lg font-bold text-sky-950">แชท</h1>
-                </div>
-
-                <!-- List รายชื่อ -->
-                <div id="patientList" class="flex-1 overflow-y-auto divide-y divide-slate-100">
-                    <p class="text-xs text-slate-400 text-center py-6">กำลังโหลดรายชื่อคนไข้...</p>
-                </div>
-            </aside>
-
-            <!-- 💬 Main ขวา: ห้องแชตตอบคำถาม -->
-            <main class="flex-1 bg-sky-50/30 flex flex-col h-2/3 md:h-full">
+        <!-- 💬 หน้าแชท -->
+        <div id="chatView" class="flex-1 flex flex-col h-full w-full absolute inset-0 bg-[#f8fafc] transition-opacity">
+            <!-- 💬 Main: ห้องแชตตอบคำถามแบบเต็มจอ -->
+            <main class="flex-1 bg-sky-50/30 flex flex-col h-full">
                 
                 <!-- Header แสดงรายละเอียดคนไข้ที่เลือก -->
                 <header id="chatHeader" class="p-4 bg-white border-b border-slate-200 shadow-xs flex justify-between items-center min-h-[65px]">
                     <div>
-                        <h2 id="headerName" class="font-bold text-slate-800 text-base">กรุณาเลือกเคสคนไข้ทางด้านซ้าย</h2>
+                        <h2 id="headerName" class="font-bold text-slate-800 text-base">กรุณาเลือกเคสคนไข้จากเมนูด้านซ้าย (ไอคอน 🍔)</h2>
                         <div id="headerDetails" class="text-xs text-slate-500 mt-0.5 flex gap-3">
                             <span>เพศ: -</span>
                             <span>อายุ: -</span>
@@ -106,7 +116,7 @@
 
                 <!-- กล่องข้อความแชต -->
                 <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3">
-                    <div class="text-center text-xs text-slate-400 mt-10">กรุณาเลือกคนไข้จากรายการซ้ายมือ เพื่อเริ่มการสนทนา</div>
+                    <div class="text-center text-xs text-slate-400 mt-10">กรุณาคลิกปุ่มเมนูด้านบนซ้าย (🍔) เพื่อเลือกรายชื่อคนไข้จากเมนูด้านข้าง</div>
                 </div>
 
                 <!-- ฟอร์มส่งข้อความฝั่งหมอ -->
@@ -170,7 +180,7 @@
     </div>
 
     <script>
-        // ฟังก์ชันแสดง Toast แจ้งเตือนสวยๆ แทนการใช้ alert
+        // ฟังก์ชันแสดง Toast แจ้งเตือนสวยๆ
         function showToast(title, message, isError = false) {
             const toast = document.getElementById('toast');
             const toastIcon = document.getElementById('toastIcon');
@@ -217,17 +227,23 @@
             const clinicView = document.getElementById('clinicView');
             const menuChat = document.getElementById('menuChat');
             const menuClinic = document.getElementById('menuClinic');
+            const sidebarChatSection = document.getElementById('sidebarChatSection');
+            const navSubTitle = document.getElementById('navSubTitle');
 
             if (view === 'chat') {
                 chatView.classList.remove('hidden', 'opacity-0');
                 clinicView.classList.add('hidden', 'opacity-0');
+                sidebarChatSection.classList.remove('hidden');
                 menuChat.className = "flex items-center space-x-3 p-3 rounded-xl bg-sky-50 text-sky-900 font-medium transition";
                 menuClinic.className = "flex items-center space-x-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 font-medium transition";
+                navSubTitle.innerText = "จัดการระบบและแชท";
             } else {
                 clinicView.classList.remove('hidden', 'opacity-0');
                 chatView.classList.add('hidden', 'opacity-0');
+                sidebarChatSection.classList.add('hidden');
                 menuClinic.className = "flex items-center space-x-3 p-3 rounded-xl bg-sky-50 text-sky-900 font-medium transition";
                 menuChat.className = "flex items-center space-x-3 p-3 rounded-xl text-slate-700 hover:bg-slate-50 font-medium transition";
+                navSubTitle.innerText = "เพิ่มข้อมูลคลินิก";
             }
             toggleMenu();
         }
@@ -239,6 +255,8 @@
         let activePatientId = null;
         let activeChatHistory = [];
         let activePatientData = null;
+        let allConsultationsData = [];
+        let globalRecordMap = {};
 
         document.addEventListener('DOMContentLoaded', () => {
             loadPatientList();
@@ -255,7 +273,7 @@
         // 📋 โหลดรายการคนไข้ทั้งหมด
         async function loadPatientList(isSilent = false) {
             const listContainer = document.getElementById('patientList');
-            if (!isSilent && listContainer.children.length <= 1) {
+            if (!isSilent && allConsultationsData.length === 0) {
                 listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">กำลังโหลดรายชื่อคนไข้...</p>`;
             }
 
@@ -265,9 +283,13 @@
                 .order('updated_at', { ascending: false });
 
             if (error || !consultations || consultations.length === 0) {
+                allConsultationsData = [];
                 listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">ยังไม่มีเคสเข้าปรึกษา</p>`;
+                document.getElementById('patientCountBadge').innerText = `0 เคส`;
                 return;
             }
+
+            allConsultationsData = consultations;
 
             const patientIds = consultations.map(c => c.id);
             const { data: records } = await db
@@ -275,15 +297,34 @@
                 .select('id, age, test_result, symptoms, sex')
                 .in('id', patientIds);
 
-            const recordMap = {};
+            globalRecordMap = {};
             if (records) {
-                records.forEach(r => recordMap[r.id] = r);
+                records.forEach(r => globalRecordMap[r.id] = r);
             }
 
-            listContainer.innerHTML = consultations.map(c => {
-                const profile = recordMap[c.id] || {};
+            document.getElementById('patientCountBadge').innerText = `${consultations.length} เคส`;
+            filterPatientList();
+        }
+
+        // 🔍 กรองรายชื่อคนไข้ตามช่องค้นหาชื่อ
+        function filterPatientList() {
+            const query = document.getElementById('patientSearchInput').value.trim().toLowerCase();
+            const listContainer = document.getElementById('patientList');
+
+            const filtered = allConsultationsData.filter(c => {
+                const name = (c.name || 'ผู้ป่วยทั่วไป').toLowerCase();
+                return name.includes(query);
+            });
+
+            if (filtered.length === 0) {
+                listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">ไม่พบรายชื่อคนไข้ที่ค้นหา</p>`;
+                return;
+            }
+
+            listContainer.innerHTML = filtered.map(c => {
+                const profile = globalRecordMap[c.id] || {};
                 const isSelected = c.id === activePatientId;
-                const activeClass = isSelected ? 'bg-sky-50 border-l-4 border-sky-500' : 'hover:bg-slate-50';
+                const activeClass = isSelected ? 'bg-sky-50 border-l-4 border-sky-500 rounded-r-xl' : 'hover:bg-slate-50 rounded-xl';
                 
                 const lastMsg = c.chat_history && c.chat_history.length > 0 
                     ? c.chat_history[c.chat_history.length - 1].message 
@@ -297,12 +338,12 @@
 
                 return `
                     <div onclick="selectPatient('${c.id}', '${c.name || 'ผู้ป่วยทั่วไป'}', '${sexText}', '${ageText}', '${profile.test_result || '-'}')" 
-                         class="p-3.5 cursor-pointer transition ${activeClass}">
+                         class="p-3 cursor-pointer transition ${activeClass}">
                         <div class="flex justify-between items-start mb-1">
                             <h3 class="font-bold text-slate-800 text-sm">${c.name || 'ผู้ป่วยทั่วไป'}</h3>
                             ${resultBadge}
                         </div>
-                        <div class="text-[11px] text-slate-500 flex gap-2 mb-1.5">
+                        <div class="text-[11px] text-slate-500 flex gap-2 mb-1">
                             <span>เพศ: ${sexText}</span>
                             <span>•</span>
                             <span>อายุ: ${ageText}</span>
@@ -313,7 +354,7 @@
             }).join('');
         }
 
-        // 👆 เลือกคนไข้เพื่อเปิดแชต
+        // 👆 เลือกคนไข้เพื่อเปิดแชต (พร้อมปิด sidebar อัตโนมัติบนมือถือ/จอเล็กเพื่อความสะดวก)
         async function selectPatient(id, name, sex, age, result) {
             activePatientId = id;
             activePatientData = { name, sex, age, result };
@@ -329,7 +370,8 @@
             document.getElementById('doctorSendBtn').disabled = false;
 
             await loadChatMessages(id);
-            loadPatientList(true);
+            filterPatientList();
+            toggleMenu(); // ปิด Sidebar ทันทีหลังเลือกเคสเสร็จ
         }
 
         // 💬 ดึงประวัติแชต
