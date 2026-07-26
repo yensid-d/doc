@@ -18,14 +18,9 @@
 
     <!-- 👥 Sidebar ซ้าย: รายชื่อคนไข้ -->
     <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-full z-10 shadow-sm">
-        <div class="p-4 border-b border-slate-100 bg-sky-50/50 flex justify-between items-center">
-            <div>
-                <h1 class="text-lg font-bold text-sky-950">ระบบเจ้าหน้าที่/หมอ</h1>
-                <p class="text-xs text-sky-600">แชท</p>
-            </div>
-            <button onclick="loadPatientList()" class="text-xs bg-white text-sky-600 px-2.5 py-1 rounded-lg border border-sky-200 hover:bg-sky-50 cursor-pointer shadow-xs">
-                🔄 รีเฟรช
-            </button>
+        <div class="p-4 border-b border-slate-100 bg-sky-50/50">
+            <h1 class="text-lg font-bold text-sky-950">ระบบเจ้าหน้าที่/หมอ</h1>
+            <p class="text-xs text-sky-600">แชท)</p>
         </div>
 
         <!-- List รายชื่อ -->
@@ -77,13 +72,13 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadPatientList();
             
-            // Auto refresh รายชื่อและแชตทุกๆ 5 วินาที
+            // 🔄 Auto-refresh ทำงานอัตโนมัติทุกๆ 3 วินาทีแบบเงียบๆ
             setInterval(() => {
                 loadPatientList(true);
                 if (activePatientId) {
                     loadChatMessages(activePatientId, true);
                 }
-            }, 5000);
+            }, 3000);
         });
 
         // 📋 โหลดรายการคนไข้ทั้งหมด
@@ -93,7 +88,6 @@
                 listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">กำลังโหลดรายชื่อคนไข้...</p>`;
             }
 
-            // ดึงข้อมูลการปรึกษา
             const { data: consultations, error } = await db
                 .from('consultations')
                 .select('*')
@@ -104,7 +98,6 @@
                 return;
             }
 
-            // ดึงข้อมูลโปรไฟล์ผู้ป่วยเพิ่มเติม (อายุ, ผลตรวจ)
             const patientIds = consultations.map(c => c.id);
             const { data: records } = await db
                 .from('patient_records')
@@ -154,7 +147,6 @@
             activePatientId = id;
             activePatientData = { name, sex, age, result };
 
-            // อัปเดต Header ด้านบน
             document.getElementById('headerName').innerText = `คุณ ${name}`;
             document.getElementById('headerDetails').innerHTML = `
                 <span><b>เพศ:</b> ${sex}</span>
@@ -162,19 +154,15 @@
                 <span><b>ผลตรวจ:</b> ${result.toUpperCase()}</span>
             `;
 
-            // เปิดใช้งานช่องพิมพ์แชต
             document.getElementById('doctorInput').disabled = false;
             document.getElementById('doctorSendBtn').disabled = false;
 
-            // โหลดประวัติแชต
             await loadChatMessages(id);
-            loadPatientList(true); // อัปเดตสีแถบเลือก
+            loadPatientList(true);
         }
 
-        // 💬 ดึงประวัติแชตของคนไข้ที่เลือก
+        // 💬 ดึงประวัติแชต
         async function loadChatMessages(id, isSilent = false) {
-            const chatContainer = document.getElementById('chatMessages');
-
             const { data } = await db
                 .from('consultations')
                 .select('chat_history')
@@ -182,19 +170,20 @@
                 .maybeSingle();
 
             if (data && data.chat_history) {
-                activeChatHistory = data.chat_history;
-                renderDoctorChatUI();
+                // เช็กจำนวนข้อความก่อนเรนเดอร์ใหม่ ป้องกัน UI กระตุก
+                if (JSON.stringify(activeChatHistory) !== JSON.stringify(data.chat_history)) {
+                    activeChatHistory = data.chat_history;
+                    renderDoctorChatUI();
+                }
             }
         }
 
-        // แสดงผลรายการแชต
         function renderDoctorChatUI() {
             const chatContainer = document.getElementById('chatMessages');
             chatContainer.innerHTML = '';
 
             activeChatHistory.forEach(msg => {
                 if (msg.sender === 'patient') {
-                    // ข้อความคนไข้ (แสดงฝั่งซ้าย)
                     chatContainer.innerHTML += `
                         <div class="flex items-start gap-2">
                             <div class="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">คนไข้</div>
@@ -204,7 +193,6 @@
                         </div>
                     `;
                 } else {
-                    // ข้อความหมอ (แสดงฝั่งขวา)
                     chatContainer.innerHTML += `
                         <div class="flex items-start justify-end gap-2">
                             <div class="bg-sky-500 text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[80%] shadow-xs">
@@ -229,7 +217,6 @@
 
             input.value = '';
 
-            // บันทึกข้อความหมอ (sender: 'doctor')
             activeChatHistory.push({ sender: 'doctor', message: messageText });
             renderDoctorChatUI();
 
@@ -237,6 +224,8 @@
                 .from('consultations')
                 .upsert([{
                     id: activePatientId,
+                    name: activePatientData ? activePatientData.name : 'ผู้ป่วยทั่วไป',
+                    sex: activePatientData ? activePatientData.sex : 'ไม่ระบุ',
                     chat_history: activeChatHistory,
                     updated_at: new Date().toISOString()
                 }], { onConflict: 'id' });
@@ -245,7 +234,7 @@
                 console.error('Doctor send error:', error.message);
                 alert('ส่งข้อความไม่สำเร็จ: ' + error.message);
             } else {
-                loadPatientList(true); // อัปเดตรายการข้อความล่าสุดใน sidebar
+                loadPatientList(true);
             }
         });
     </script>
