@@ -3,250 +3,251 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Dashboard</title>
+    <title>Multi STIs Test Kit</title>
+    <!-- Google Font: Itim -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Itim&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        .chat-bg { background-color: #f0f7ff; }
-        .user-bubble { background-color: #e2e8f0; color: #1e293b; }
-        .doctor-bubble { background-color: #2563eb; color: #ffffff; }
+        body { font-family: 'Itim', cursive; background-color: #f8fafc; }
     </style>
 </head>
-<body class="bg-slate-50 font-sans antialiased h-screen flex flex-col">
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
 
-    <!-- Header -->
-    <header class="bg-blue-700 text-white p-4 flex justify-between items-center shadow-md shrink-0">
-        <div>
-            <h1 class="text-lg font-bold">Chat Dashboard</h1>
-            <p class="text-xs text-blue-200">ระบบตอบกลับข้อความ</p>
+    <!-- 👥 Sidebar ซ้าย: รายชื่อคนไข้ -->
+    <aside class="w-full md:w-80 bg-white border-r border-slate-200 flex flex-col h-1/3 md:h-full z-10 shadow-sm">
+        <div class="p-4 border-b border-slate-100 bg-sky-50/50 flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-bold text-sky-950">ระบบเจ้าหน้าที่/หมอ</h1>
+                <p class="text-xs text-sky-600">แชท</p>
+            </div>
+            <button onclick="loadPatientList()" class="text-xs bg-white text-sky-600 px-2.5 py-1 rounded-lg border border-sky-200 hover:bg-sky-50 cursor-pointer shadow-xs">
+                🔄 รีเฟรช
+            </button>
         </div>
-        <button onclick="loadPatientList()" class="bg-blue-600 hover:bg-blue-800 border border-blue-500 text-white text-xs px-3 py-1.5 rounded-xl font-medium transition cursor-pointer">
-            🔄 ซิงค์ข้อมูลใหม่
-        </button>
-    </header>
 
-    <!-- Main Workspace -->
-    <div class="flex-1 flex overflow-hidden">
+        <!-- List รายชื่อ -->
+        <div id="patientList" class="flex-1 overflow-y-auto divide-y divide-slate-100">
+            <p class="text-xs text-slate-400 text-center py-6">กำลังโหลดรายชื่อคนไข้...</p>
+        </div>
+    </aside>
+
+    <!-- 💬 Main ขวา: ห้องแชตตอบคำถาม -->
+    <main class="flex-1 bg-sky-50/30 flex flex-col h-2/3 md:h-full">
         
-        <!-- 👥 ฝั่งซ้าย: รายชื่อคนไข้ที่มีการทักเข้ามา -->
-        <aside class="w-80 border-r border-slate-200 bg-white flex flex-col shrink-0">
-            <div class="p-4 border-b border-slate-100 bg-slate-50/50">
-                <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">📥 รายการห้องแชท</h2>
-            </div>
-            <div id="patientList" class="flex-1 overflow-y-auto divide-y divide-slate-100">
-                <p class="text-slate-400 text-center py-8 text-xs">กำลังโหลดรายชื่อ...</p>
-            </div>
-        </aside>
-
-        <!-- 💬 ฝั่งขวา: ห้องสนทนาของคนไข้ที่ถูกเลือก -->
-        <main class="flex-1 flex flex-col bg-slate-100" id="chatArea">
-            <!-- หน้าต่างเริ่มต้นตอนที่หมอยังไม่ได้คลิกเลือกใคร -->
-            <div id="noChatSelected" class="flex-1 flex flex-col items-center justify-center text-slate-400 p-8">
-                <div class="text-4xl mb-2">💬</div>
-                <p class="text-sm font-medium">กรุณาเลือกรายชื่อคนไข้ทางฝั่งซ้ายเพื่อเริ่มการสนทนา</p>
-            </div>
-
-            <!-- กล่องประวัติแชทจริง (จะเปิดแสดงเมื่อเลือกคนไข้แล้ว) -->
-            <div id="chatWindow" class="flex-1 flex flex-col overflow-hidden hidden">
-                <!-- ชื่อคนไข้ด้านบนห้องแชท -->
-                <div class="bg-white p-3 border-b border-slate-200 shadow-2xs shrink-0 flex justify-between items-center">
-                    <span class="font-bold text-slate-800 text-sm" id="currentChatPatientName">คนไข้</span>
-                    <span class="text-xs text-slate-400">ห้องสนทนาส่วนตัว</span>
+        <!-- Header แสดงรายละเอียดคนไข้ที่เลือก -->
+        <header id="chatHeader" class="p-4 bg-white border-b border-slate-200 shadow-xs flex justify-between items-center min-h-[65px]">
+            <div>
+                <h2 id="headerName" class="font-bold text-slate-800 text-base">กรุณาเลือกเคสคนไข้ทางด้านซ้าย</h2>
+                <div id="headerDetails" class="text-xs text-slate-500 mt-0.5 flex gap-3">
+                    <span>เพศ: -</span>
+                    <span>อายุ: -</span>
+                    <span>ผลตรวจ: -</span>
                 </div>
-
-                <!-- พื้นที่แชทไหล -->
-                <div class="chat-bg flex-1 overflow-y-auto p-4 space-y-3" id="doctorChatContainer">
-                    <div id="doctorChatHistory" class="space-y-3 max-w-2xl mx-auto"></div>
-                </div>
-
-                <!-- ฟอร์มพิมพ์ส่งคำตอบของหมอ -->
-                <footer class="bg-white border-t border-slate-200 p-3 shrink-0 shadow-lg">
-                    <form id="doctorReplyForm" class="max-w-2xl mx-auto flex items-end space-x-2">
-                        <textarea id="doctorReplyMessage" rows="1" required placeholder="พิมพ์ข้อความตอบกลับคนไข้ที่นี่..." 
-                                  class="flex-1 min-h-[40px] max-h-[120px] p-2 bg-slate-50 border border-slate-200 rounded-xl resize-none focus:outline-hidden focus:border-blue-500 text-sm"
-                                  oninput="this.style.height = '';this.style.height = this.scrollHeight + 'px'"></textarea>
-                        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl text-sm font-bold shadow-xs transition shrink-0 h-[40px] flex items-center justify-center cursor-pointer">
-                            ส่งคำตอบ
-                        </button>
-                    </form>
-                </footer>
             </div>
-        </main>
-    </div>
+        </header>
+
+        <!-- กล่องข้อความแชต -->
+        <div id="chatMessages" class="flex-1 p-4 overflow-y-auto space-y-3">
+            <div class="text-center text-xs text-slate-400 mt-10">กรุณาเลือกคนไข้จากรายการซ้ายมือ เพื่อเริ่มการสนทนา</div>
+        </div>
+
+        <!-- ฟอร์มส่งข้อความฝั่งหมอ -->
+        <form id="doctorChatForm" class="p-3 bg-white border-t border-slate-200 flex gap-2">
+            <input type="text" id="doctorInput" placeholder="พิมพ์ข้อความตอบกลับคนไข้..." disabled required
+                   class="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-400 disabled:bg-slate-100 disabled:cursor-not-allowed">
+            <button type="submit" id="doctorSendBtn" disabled class="bg-sky-500 hover:bg-sky-600 disabled:bg-slate-300 text-white px-6 rounded-xl text-sm font-medium transition cursor-pointer">
+                ส่งข้อความ
+            </button>
+        </form>
+
+    </main>
 
     <script>
         const SUPABASE_URL = "https://gsfwxrbeykupnobvnvvj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_qpHFtNjXGKYTIXMXaT_NPw_BLIOv7oc";
         const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        let selectedPatientName = null;
+        let activePatientId = null;
+        let activeChatHistory = [];
+        let activePatientData = null;
 
-        loadPatientList();
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPatientList();
+            
+            // Auto refresh รายชื่อและแชตทุกๆ 5 วินาที
+            setInterval(() => {
+                loadPatientList(true);
+                if (activePatientId) {
+                    loadChatMessages(activePatientId, true);
+                }
+            }, 5000);
+        });
 
-        // 1. ดึงรายชื่อคนไข้ที่มีประวัติคุย
-        async function loadPatientList() {
-            const { data: chats, error } = await db
-                .from('expert_chats')
+        // 📋 โหลดรายการคนไข้ทั้งหมด
+        async function loadPatientList(isSilent = false) {
+            const listContainer = document.getElementById('patientList');
+            if (!isSilent && listContainer.children.length <= 1) {
+                listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">กำลังโหลดรายชื่อคนไข้...</p>`;
+            }
+
+            // ดึงข้อมูลการปรึกษา
+            const { data: consultations, error } = await db
+                .from('consultations')
                 .select('*')
-                .order('created_at', { ascending: false });
+                .order('updated_at', { ascending: false });
 
-            if (error) { console.error(error); return; }
-
-            const patientListDiv = document.getElementById('patientList');
-            patientListDiv.innerHTML = '';
-
-            if (!chats || chats.length === 0) {
-                patientListDiv.innerHTML = '<p class="text-slate-400 text-center py-8 text-xs">ไม่มีห้องแชทในระบบ</p>';
+            if (error || !consultations || consultations.length === 0) {
+                listContainer.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">ยังไม่มีเคสเข้าปรึกษา</p>`;
                 return;
             }
 
-            const uniquePatients = {};
-            chats.forEach(chat => {
-                if (!uniquePatients[chat.patient_name]) {
-                    // หาข้อความล่าสุดในห้องนี้ ไม่ว่าจะเป็นคนไข้พิมพ์หรือหมอพิมพ์
-                    let displayMsg = chat.chat_message ? chat.chat_message : `👨‍⚕️ คุณหมอ: ${chat.expert_reply}`;
-                    
-                    // หาว่าข้อความสุดท้ายของห้องนี้ หมอตอบหรือยัง (ถ้าข้อความล่าสุดมีแต่ chat_message และไม่มี expert_reply แปลว่ายังไม่ได้ตอบ)
-                    let isReplied = true;
-                    if (chat.chat_message && !chat.expert_reply) {
-                        isReplied = false;
-                    }
+            // ดึงข้อมูลโปรไฟล์ผู้ป่วยเพิ่มเติม (อายุ, ผลตรวจ)
+            const patientIds = consultations.map(c => c.id);
+            const { data: records } = await db
+                .from('patient_records')
+                .select('id, age, test_result, symptoms, sex')
+                .in('id', patientIds);
 
-                    uniquePatients[chat.patient_name] = {
-                        last_message: displayMsg,
-                        is_replied: isReplied,
-                        time: new Date(chat.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'})
-                    };
-                }
-            });
+            const recordMap = {};
+            if (records) {
+                records.forEach(r => recordMap[r.id] = r);
+            }
 
-            Object.keys(uniquePatients).forEach(pName => {
-                const pInfo = uniquePatients[pName];
-                const activeClass = (selectedPatientName === pName) ? 'bg-blue-50 border-l-4 border-blue-600' : '';
-                const alertDot = !pInfo.is_replied ? '<span class="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0 shadow-xs"></span>' : '';
+            listContainer.innerHTML = consultations.map(c => {
+                const profile = recordMap[c.id] || {};
+                const isSelected = c.id === activePatientId;
+                const activeClass = isSelected ? 'bg-sky-50 border-l-4 border-sky-500' : 'hover:bg-slate-50';
+                
+                const lastMsg = c.chat_history && c.chat_history.length > 0 
+                    ? c.chat_history[c.chat_history.length - 1].message 
+                    : 'ยังไม่มีข้อความ';
 
-                patientListDiv.innerHTML += `
-                    <button onclick="selectPatient('${pName}')" class="w-full text-left p-3.5 flex flex-col gap-1 hover:bg-slate-50 transition cursor-pointer ${activeClass}">
-                        <div class="flex items-center justify-between w-full">
-                            <span class="font-bold text-slate-800 text-xs flex items-center gap-1.5">${pName} ${alertDot}</span>
-                            <span class="text-[10px] text-slate-400 font-normal">${pInfo.time}</span>
+                const ageText = profile.age ? `${profile.age} ปี` : 'ไม่ระบุอายุ';
+                const sexText = c.sex || profile.sex || 'ไม่ระบุเพศ';
+                const resultBadge = profile.test_result === 'positive' 
+                    ? `<span class="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[10px] font-bold">บวก</span>` 
+                    : `<span class="bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded text-[10px] font-bold">ลบ</span>`;
+
+                return `
+                    <div onclick="selectPatient('${c.id}', '${c.name || 'ผู้ป่วยทั่วไป'}', '${sexText}', '${ageText}', '${profile.test_result || '-'}')" 
+                         class="p-3.5 cursor-pointer transition ${activeClass}">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="font-bold text-slate-800 text-sm">${c.name || 'ผู้ป่วยทั่วไป'}</h3>
+                            ${resultBadge}
                         </div>
-                        <p class="text-slate-500 text-[11px] truncate w-full">${pInfo.last_message}</p>
-                    </button>
+                        <div class="text-[11px] text-slate-500 flex gap-2 mb-1.5">
+                            <span>เพศ: ${sexText}</span>
+                            <span>•</span>
+                            <span>อายุ: ${ageText}</span>
+                        </div>
+                        <p class="text-xs text-slate-400 truncate">${lastMsg}</p>
+                    </div>
                 `;
-            });
+            }).join('');
         }
 
-        function selectPatient(patientName) {
-            selectedPatientName = patientName;
-            document.getElementById('noChatSelected').classList.add('hidden');
-            document.getElementById('chatWindow').classList.remove('hidden');
-            document.getElementById('currentChatPatientName').innerText = `💬 กำลังคุยกับคุณ: ${patientName}`;
-            
-            loadPatientList();
-            loadSpecificChatHistory();
+        // 👆 เลือกคนไข้เพื่อเปิดแชต
+        async function selectPatient(id, name, sex, age, result) {
+            activePatientId = id;
+            activePatientData = { name, sex, age, result };
+
+            // อัปเดต Header ด้านบน
+            document.getElementById('headerName').innerText = `คุณ ${name}`;
+            document.getElementById('headerDetails').innerHTML = `
+                <span><b>เพศ:</b> ${sex}</span>
+                <span><b>อายุ:</b> ${age}</span>
+                <span><b>ผลตรวจ:</b> ${result.toUpperCase()}</span>
+            `;
+
+            // เปิดใช้งานช่องพิมพ์แชต
+            document.getElementById('doctorInput').disabled = false;
+            document.getElementById('doctorSendBtn').disabled = false;
+
+            // โหลดประวัติแชต
+            await loadChatMessages(id);
+            loadPatientList(true); // อัปเดตสีแถบเลือก
         }
 
-        // 2. ดึงประวัติการคุยมาแสดงในห้องแชท (รองรับการแสดงผลแถวที่เป็นของหมอล้วนๆ)
-        async function loadSpecificChatHistory() {
-            if (!selectedPatientName) return;
+        // 💬 ดึงประวัติแชตของคนไข้ที่เลือก
+        async function loadChatMessages(id, isSilent = false) {
+            const chatContainer = document.getElementById('chatMessages');
 
-            const { data: chats, error } = await db
-                .from('expert_chats')
-                .select('*')
-                .eq('patient_name', selectedPatientName)
-                .order('created_at', { ascending: true });
+            const { data } = await db
+                .from('consultations')
+                .select('chat_history')
+                .eq('id', id)
+                .maybeSingle();
 
-            if (error) { console.error(error); return; }
+            if (data && data.chat_history) {
+                activeChatHistory = data.chat_history;
+                renderDoctorChatUI();
+            }
+        }
 
-            const chatHistoryDiv = document.getElementById('doctorChatHistory');
-            chatHistoryDiv.innerHTML = '';
+        // แสดงผลรายการแชต
+        function renderDoctorChatUI() {
+            const chatContainer = document.getElementById('chatMessages');
+            chatContainer.innerHTML = '';
 
-            chats.forEach(chat => {
-                const chatTime = new Date(chat.created_at).toLocaleTimeString('th-TH', {hour: '2-digit', minute:'2-digit'});
-
-                // กรณีที่ 1: แถวที่มีข้อความคนไข้ (และอาจจะมีคำตอบหมอพ่วงอยู่ด้วย)
-                if (chat.chat_message) {
-                    let chatHtml = `
-                        <div class="flex flex-col items-start w-full space-y-0.5">
-                            <span class="text-[10px] text-slate-500 ml-1">${chat.patient_name}</span>
-                            <div class="flex items-end space-x-1.5 max-w-[85%]">
-                                <div class="user-bubble p-2.5 rounded-2xl rounded-tl-xs shadow-2xs text-xs break-words">
-                                    ${chat.chat_message}
-                                </div>
-                                <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
+            activeChatHistory.forEach(msg => {
+                if (msg.sender === 'patient') {
+                    // ข้อความคนไข้ (แสดงฝั่งซ้าย)
+                    chatContainer.innerHTML += `
+                        <div class="flex items-start gap-2">
+                            <div class="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center text-xs font-bold shrink-0">คนไข้</div>
+                            <div class="bg-white text-slate-800 p-3 rounded-2xl rounded-tl-none text-sm max-w-[80%] border border-slate-200 shadow-xs">
+                                ${msg.message}
                             </div>
                         </div>
                     `;
-
-                    if (chat.expert_reply) {
-                        chatHtml += `
-                            <div class="flex flex-col items-end w-full space-y-0.5 mt-2">
-                                <span class="text-[10px] text-blue-600 font-semibold mr-1">👨‍⚕️ คำตอบของคุณ</span>
-                                <div class="flex items-end space-x-1.5 max-w-[85%]">
-                                    <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
-                                    <div class="doctor-bubble p-2.5 rounded-2xl rounded-tr-xs shadow-2xs text-xs break-words">
-                                        ${chat.expert_reply}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    chatHistoryDiv.innerHTML += chatHtml;
-                } 
-                // กรณีที่ 2: แถวที่เป็นข้อความที่หมอสร้างขึ้นมาใหม่เดี่ยวๆ (พิมพ์เบิ้ลส่งไป)
-                else if (chat.expert_reply) {
-                    let chatHtml = `
-                        <div class="flex flex-col items-end w-full space-y-0.5 mt-2">
-                            <span class="text-[10px] text-blue-600 font-semibold mr-1">👨‍⚕️ คำตอบของคุณ</span>
-                            <div class="flex items-end space-x-1.5 max-w-[85%]">
-                                <span class="text-[9px] text-slate-400 shrink-0 select-none">${chatTime}</span>
-                                <div class="doctor-bubble p-2.5 rounded-2xl rounded-tr-xs shadow-2xs text-xs break-words">
-                                    ${chat.expert_reply}
-                                </div>
+                } else {
+                    // ข้อความหมอ (แสดงฝั่งขวา)
+                    chatContainer.innerHTML += `
+                        <div class="flex items-start justify-end gap-2">
+                            <div class="bg-sky-500 text-white p-3 rounded-2xl rounded-tr-none text-sm max-w-[80%] shadow-xs">
+                                ${msg.message}
                             </div>
                         </div>
                     `;
-                    chatHistoryDiv.innerHTML += chatHtml;
                 }
             });
 
-            const chatContainer = document.getElementById('doctorChatContainer');
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // 3. ปรับตรงนี้! เปลี่ยนจากการอัปเดตแถวเก่า เป็นการ INSERT เพิ่มแถวคำตอบใหม่เข้าไปแทน
-        document.getElementById('doctorReplyForm').addEventListener('submit', async (e) => {
+        // 📤 หมอส่งข้อความตอบกลับ
+        document.getElementById('doctorChatForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            if (!selectedPatientName) return;
+            if (!activePatientId) return;
 
-            const replyInput = document.getElementById('doctorReplyMessage');
-            const replyText = replyInput.value.trim();
+            const input = document.getElementById('doctorInput');
+            const messageText = input.value.trim();
+            if (!messageText) return;
 
-            // ใช้คำสั่ง .insert เพื่อสร้างกล่องข้อความของหมออันใหม่เข้าไปเลย ทำให้หมอพิมพ์กี่ข้อความต่อกันก็ได้ครับ
+            input.value = '';
+
+            // บันทึกข้อความหมอ (sender: 'doctor')
+            activeChatHistory.push({ sender: 'doctor', message: messageText });
+            renderDoctorChatUI();
+
             const { error } = await db
-                .from('expert_chats')
-                .insert([{ 
-                    patient_name: selectedPatientName, 
-                    chat_message: null, // ปล่อยเป็น null เพราะเป็นข้อความฝั่งหมอพิมพ์ส่ง
-                    expert_reply: replyText 
-                }]);
+                .from('consultations')
+                .upsert([{
+                    id: activePatientId,
+                    chat_history: activeChatHistory,
+                    updated_at: new Date().toISOString()
+                }], { onConflict: 'id' });
 
             if (error) {
-                alert('ส่งคำตอบล้มเหลว: ' + error.message);
+                console.error('Doctor send error:', error.message);
+                alert('ส่งข้อความไม่สำเร็จ: ' + error.message);
             } else {
-                replyInput.value = '';
-                replyInput.style.height = '40px';
-                await loadSpecificChatHistory();
-                await loadPatientList();
+                loadPatientList(true); // อัปเดตรายการข้อความล่าสุดใน sidebar
             }
         });
-
-        // ดึงข้อมูลแชทใหม่ให้อัตโนมัติทุกๆ 3 วินาที
-        setInterval(() => {
-            loadPatientList();
-            loadSpecificChatHistory();
-        }, 3000);
     </script>
 </body>
 </html>
