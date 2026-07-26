@@ -170,6 +170,13 @@
                                class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-400 focus:bg-white transition">
                     </div>
 
+                    <!-- ช่องกรอก Google Maps ที่เพิ่มเข้ามาใหม่ -->
+                    <div class="space-y-1">
+                        <label for="clinic_map" class="text-xs font-medium text-slate-700">ลิงก์ Google Maps (หรือพิกัด)</label>
+                        <input type="text" id="clinic_map" placeholder="https://maps.app.goo.gl/... หรือ 13.7563, 100.5018"
+                               class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-400 focus:bg-white transition">
+                    </div>
+
                     <button type="submit" id="clinicSubmitBtn" class="w-full bg-sky-500 hover:bg-sky-600 active:scale-[0.99] text-white p-3 rounded-xl text-sm font-medium shadow-md shadow-sky-200 transition-all cursor-pointer mt-2">
                         บันทึกคลินิก →
                     </button>
@@ -450,7 +457,7 @@
             }
         });
 
-        // 🏥 บันทึกข้อมูลคลินิก
+        // 🏥 บันทึกข้อมูลคลินิก (รวม Google Maps)
         document.getElementById('clinicForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
@@ -465,7 +472,8 @@
                 province: document.getElementById('clinic_province').value.trim(),
                 district: document.getElementById('clinic_district').value.trim(),
                 address: document.getElementById('clinic_address').value.trim(),
-                phone: document.getElementById('clinic_phone').value.trim()
+                phone: document.getElementById('clinic_phone').value.trim(),
+                map_url: document.getElementById('clinic_map').value.trim()
             };
 
             const { error } = await db
@@ -473,7 +481,7 @@
                 .insert([clinicData]);
 
             if (!error) {
-                showToast("สำเร็จ", "บันทึกข้อมูลคลินิกเรียบร้อยแล้ว");
+                showToast("สำเร็จ", "บันทึกข้อมูลคลินิกและแผนที่เรียบร้อยแล้ว");
                 document.getElementById('clinicForm').reset();
             } else {
                 showToast("เกิดข้อผิดพลาด", "บันทึกไม่สำเร็จ: " + error.message, true);
